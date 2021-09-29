@@ -15,12 +15,12 @@ function Square({value, onClick, winningSquare}) {
 class Board extends React.Component {
   constructor(props) {
       super(props);
+      const length = props.sizeBoard*props.sizeBoard;
       this.state = {
-          squares: Array(9).fill(null),
+          squares: Array(length).fill(null),
           xIsNext: true,
       }
   }
-
   renderSquare(i) {
     return (
       <Square 
@@ -33,10 +33,10 @@ class Board extends React.Component {
 
   render() {
     let board = [];
-    for (let row=0;row<3;row++){
+    for (let row=0;row<this.props.sizeBoard;row++){
       let listRow = [];
-      for (let col=0;col<3;col++){
-        listRow.push(this.renderSquare(row*3 + col));
+      for (let col=0;col<this.props.sizeBoard;col++){
+        listRow.push(this.renderSquare(row*this.props.sizeBoard + col));
       }
       board.push(<div className="board-row">{listRow}</div>);
     }
@@ -52,9 +52,10 @@ class Board extends React.Component {
 class Game extends React.Component {
   constructor(props) {
     super(props);
+    const length = props.sizeBoard*props.sizeBoard;
     this.state = {
       history: [{
-        squares: Array(9).fill(null),
+        squares: Array(length).fill(null),
         changedSquare: null,
       }],
       xIsNext: true,
@@ -67,14 +68,14 @@ class Game extends React.Component {
       const history = this.state.history.slice(0, this.state.stepNumber + 1);
       const current = history[history.length - 1];
       const squares = current.squares.slice();
-      if (calculateWinner(squares).winner || squares[i]) {
+      if (calculateWinner(squares, current.changedSquare).winner || squares[i]) {
         return;
       }
       squares[i] = this.state.xIsNext ? 'X':'O';
       this.setState({
         history: history.concat([{
           squares: squares,
-          changedSquare: calculateLocationChangedSquare(i),
+          changedSquare: calculateLocationChangedSquare(i, this.props.sizeBoard),
         }]),
         xIsNext: !this.state.xIsNext,
         stepNumber: history.length,
@@ -104,9 +105,9 @@ class Game extends React.Component {
 
     const history = this.state.history;
     const current = history[this.state.stepNumber];
-    const winner = calculateWinner(current.squares).winner;
-    const winningLine = calculateWinner(current.squares).winningLine;
-    const isDraw = calculateWinner(current.squares).isDraw;
+    const winner = calculateWinner(current.squares, current.changedSquare).winner;
+    const winningLine = calculateWinner(current.squares, current.changedSquare).winningLine;
+    const isDraw = calculateWinner(current.squares, current.changedSquare).isDraw;
     const moves = history.map((step, move) => {
       const desc = move ?
         'Go to move #' + move + ` clicked at (${step.changedSquare.row},${step.changedSquare.col})`:
@@ -145,6 +146,7 @@ class Game extends React.Component {
               squares={current.squares}
               onClick={(i) => this.handleClick(i)}
               winningLine={winningLine}
+              sizeBoard={this.props.sizeBoard}
             />
         </div>
         <div className="game-info">
@@ -159,35 +161,65 @@ class Game extends React.Component {
   }
 }
 
-function calculateLocationChangedSquare(position) {
-  const row = position / 3 >> 0;
-  const col = position % 3;
+function calculateLocationChangedSquare(position, sizeBoard) {
+  const row = position / sizeBoard >> 0;
+  const col = position % sizeBoard;
   return {'row':row, 'col': col};
 }
 
-function calculateWinner(squares) {
-  const lines = [
-    [0, 1, 2],
-    [3, 4, 5],
-    [6, 7, 8],
-    [0, 3, 6],
-    [1, 4, 7],
-    [2, 5, 8],
-    [0, 4, 8],
-    [2, 4, 6],
-  ];
-  for (let i = 0; i < lines.length; i++) {
-    const [a, b, c] = lines[i];
-    if (squares[a] && squares[a] === squares[b] && squares[a] === squares[c]) {
-      return {
-        winner: squares[a],
-        winningLine: lines[i],
-        isDraw: false,
-      };
+function Line5SquareWinner(squares, squareStartLoc, addRow, addCol){
+  const lengthSquare = squares.length
+  const sizeBoard = Math.sqrt(lengthSquare);
+  let canFindLine;
+  let player = squares[squareStartLoc];
+  let locStart=calculateLocationChangedSquare(squareStartLoc, sizeBoard);
+  let nextIndex;
+  for (let k=0;k<5;k++){
+    squareStartLoc = (locStart.row-addRow*k)*sizeBoard + (locStart.col-addCol*k);
+    if (squareStartLoc<0 || squareStartLoc>=lengthSquare)
+      continue;
+    canFindLine = true;
+    for (let i = 0; i < 5; i++){
+      const locStartNew = calculateLocationChangedSquare(squareStartLoc, sizeBoard);
+      nextIndex = (locStartNew.row+addRow*i)*sizeBoard + (locStartNew.col+addCol*i);
+      
+      if (nextIndex<0 || nextIndex>=lengthSquare || squares[nextIndex]!==player){
+        canFindLine = false
+        break;
+      }
+    }
+    if (canFindLine===true){
+      const line = [squareStartLoc];
+      for (let i=1;i<5;i++) {
+        line.push(squareStartLoc+addCol*i + addRow*i*sizeBoard);
+      }
+      return line;
     }
   }
+  return null;
+}
+function calculateWinner(squares, changedSquare) {
+  const lengthBoard = squares.length;
+  const index = changedSquare?changedSquare.row*Math.sqrt(lengthBoard) + changedSquare.col : null;
+  const line_check = {
+    'col':[1,0],
+    'row':[0,1],
+    'grave_accent': [1,1],
+    'acute': [-1,1]
+  }
+  let line;
+  for (let key in line_check) {
+    line = Line5SquareWinner(squares, index, line_check[key][0], line_check[key][1]);
+    if (line !== null)
+      return {
+        winner: squares[index],
+        winningLine: line,
+        isDraw: false,
+      }
+  }
+
   let isDraw = true;
-  for (let i=0;i<squares.length;i++){
+  for (let i=0;i<lengthBoard;i++){
     if (squares[i] === null){
       isDraw = false;
     }
@@ -198,11 +230,16 @@ function calculateWinner(squares) {
     isDraw: isDraw,
   };
 };
-  
+
 // ========================================
 
-ReactDOM.render(
-  <Game />,
-  document.getElementById('root')
-);
-  
+const timer = setInterval((interval) => {
+  if (document.getElementById('addSizeBoard').getAttribute('style') === 'display:none') {
+    const sizeBoard = Number(document.getElementById('sizeBoard').value, 10);
+    ReactDOM.render(
+      <Game sizeBoard={sizeBoard}/>,
+      document.getElementById('root')
+    );
+    clearInterval(timer);
+  }
+}, 100);
