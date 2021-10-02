@@ -168,35 +168,38 @@ function calculateLocationChangedSquare(position, sizeBoard) {
 }
 
 function Line5SquareWinner(squares, squareStartLoc, addRow, addCol){
-  const lengthSquare = squares.length
-  const sizeBoard = Math.sqrt(lengthSquare);
-  let canFindLine;
-  let player = squares[squareStartLoc];
-  let locStart=calculateLocationChangedSquare(squareStartLoc, sizeBoard);
-  let nextIndex;
-  for (let k=0;k<5;k++){
-    squareStartLoc = (locStart.row-addRow*k)*sizeBoard + (locStart.col-addCol*k);
-    if (squareStartLoc<0 || squareStartLoc>=lengthSquare)
-      continue;
-    canFindLine = true;
-    for (let i = 0; i < 5; i++){
-      const locStartNew = calculateLocationChangedSquare(squareStartLoc, sizeBoard);
-      nextIndex = (locStartNew.row+addRow*i)*sizeBoard + (locStartNew.col+addCol*i);
-      
-      if (nextIndex<0 || nextIndex>=lengthSquare || squares[nextIndex]!==player){
-        canFindLine = false
-        break;
-      }
+    const lengthSquare = squares.length
+    const sizeBoard = Math.sqrt(lengthSquare);
+    let canFindLine;
+    let player = squares[squareStartLoc];
+    let locStart=calculateLocationChangedSquare(squareStartLoc, sizeBoard);
+    let nextIndex;
+    let locStartNew;
+    let loc;
+    for (let k=0;k<5;k++){
+        locStartNew = {'row':locStart.row-addRow*k, 'col':locStart.col-addCol*k};
+        if (locStartNew.row<0 || locStartNew.row>=sizeBoard || locStartNew.col<0 || locStartNew.col>=sizeBoard){
+            continue;
+        }
+        canFindLine = true;
+        for (let i = 0; i < 5; i++){
+            loc = {'row':locStartNew.row+addRow*i, 'col':locStartNew.col+addCol*i}
+            nextIndex = loc.row*sizeBoard + loc.col;
+            if (loc.row<0 || loc.row>=sizeBoard || loc.col<0 || loc.col>=sizeBoard || squares[nextIndex]!==player){
+                canFindLine = false
+                break;
+            }
+        }
+        if (canFindLine===true){
+            squareStartLoc = locStartNew.row*sizeBoard + locStartNew.col;
+            const line = [squareStartLoc];
+            for (let i=1;i<5;i++) {
+                line.push(squareStartLoc+addCol*i + addRow*i*sizeBoard);
+            }
+            return line;
+        }
     }
-    if (canFindLine===true){
-      const line = [squareStartLoc];
-      for (let i=1;i<5;i++) {
-        line.push(squareStartLoc+addCol*i + addRow*i*sizeBoard);
-      }
-      return line;
-    }
-  }
-  return null;
+    return null;
 }
 function calculateWinner(squares, changedSquare) {
   const lengthBoard = squares.length;
